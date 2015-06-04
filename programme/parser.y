@@ -248,10 +248,21 @@ void check_array_decl(node *number1, node *number2) {
 
 // For task e)
 void check_assign(const char *const ident, node *expr) {
-    /*entry *entry = symbol_get_ident(ident);
-    data_type _data_type = entry->dtype;
-    data_type expr_type = get_expr_data_type(expr, EXPR_PART_EXPR);*/
-    //TODO
+    entry *entry = symbol_get_ident(ident);
+    // TODO: consider arrays
+    if(entry != NULL) {
+	data_type ident_data_type = entry->dtype;
+	data_type expr_data_type = get_expr_data_type(expr, EXPR_PART_EXPR);
+	
+	if((ident_data_type != expr_data_type) && 
+	   !(ident_data_type == _INT && expr_data_type == _REAL) &&
+	   !(ident_data_type == _REAL && expr_data_type == _INT)) {
+	    char *err_msg_part2 = get_data_type_char(ident_data_type);
+	    char *err_msg_part3 = get_data_type_char(expr_data_type);
+
+	    combine_err_msg_2_repl("Semantic error - incompatible datatypes in assign statement: %s and %s", err_msg_part2, err_msg_part3);
+	}
+    }
 }
 
 // For task c), e), f) and g)

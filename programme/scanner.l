@@ -12,8 +12,8 @@ char message[100];
 %x COMMENT
 
 WHITESPACE [ \t\n]
-INTEGER [0-9]+
-REAL [0-9]*\.[0-9]+
+INTEGER (-)?([0-9]+)	
+REAL (-)?([0-9]*\.[0-9]+)
 ID [a-zA-Z_][a-zA-Z_0-9]*
 
 A [aA]

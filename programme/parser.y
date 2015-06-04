@@ -10,8 +10,11 @@ void yyerror(char *);
 
 entry *get_and_verify_ident_symbol(const char * const ident); // handles task a)
 void declare_vars(node *identListType); // handles task b)
+void check_array_index(const char *const ident, node *index_expr); // handles task c);
+void check_array_decl(node *number1, node *number2); // handles task d);
 
 void combine_error_msg(char const *part1, char const* part2);
+void combine_error_msg_int(char const *part1, int part2);
 %}
 
 %union {
@@ -58,7 +61,7 @@ identList               : T_ID T_COMMA identList { $$ = new_node(IDENTIFIER); $$
                         ;
 		 
 type                    : simpleType { $$ = new_node(TYPE); $$->body[2] = $1; }
-                        | T_ARRAY T_LEFT_SQUARE_BRACKET number T_DOT_DOT number T_RIGHT_SQUARE_BRACKET T_OF simpleType { $$ = new_node(TYPE); $$->body[0] = $3; $$->body[1] = $5; $$->body[2] = $8; }
+| T_ARRAY T_LEFT_SQUARE_BRACKET number T_DOT_DOT number T_RIGHT_SQUARE_BRACKET T_OF simpleType { $$ = new_node(TYPE); check_array_decl($3, $5); $$->body[0] = $3; $$->body[1] = $5; $$->body[2] = $8; }
                         ;
  
 simpleType	        : T_INTEGER { $$ = new_node(SIMPLE_TYPE_INT);  }
@@ -83,7 +86,7 @@ statement	        : assignStmt { $$ = $1; }
                         ;
 
 assignStmt              : T_ID T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[2] = $3; }
-| T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; $$->body[2] = $6; }
+| T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; check_array_index($1, $3); $$->body[2] = $6; }
                         ;
  
 ifStmt		        : T_IF expr T_THEN statement { $$ = new_node(IF); $$->body[0] = $2; $$->body[1] = $4; }
@@ -202,11 +205,37 @@ entry *get_and_verify_ident_symbol(const char *const ident) {
     return entry;
 }
 
+// For task c)
+void check_array_index(const char *const ident, node *index_expr) {
+    //TODO
+}
+
+// For task d) 
+void check_array_decl(node *number1, node *number2) {
+    if(number1->symbol->dtype != _INT){
+	combine_error_msg("Semantic error - Wrong datatype for first array index in array declaration: ", get_data_type_char(number1->symbol->dtype));
+    } else if(number1->symbol->symbol.int_val < 0) {
+	char error_msg[100];
+	sprintf(error_msg, "Semantic error - Negative first array index in array declaration: %d", number1->symbol->symbol.int_val);
+	yyerror(error_msg);
+    }
+    if(number2->symbol->dtype != _INT){
+	combine_error_msg("Semantic error - Wrong datatype for second array index in array declaration: ", get_data_type_char(number2->symbol->dtype));
+    } else if(number2->symbol->symbol.int_val < 0) {
+	combine_error_msg_int("Semantic error - Negative first array index in array declaration: %d", number2->symbol->symbol.int_val);
+    }
+}
+
 void combine_error_msg(char const *part1, char const* part2) {
     char *error_msg = (char *) malloc(1 + strlen(part1)+ strlen(part2));
     strcpy(error_msg, part1);
     strcat(error_msg, part2);
-	
+    yyerror(error_msg);
+}
+
+void combine_error_msg_int(char const *part1, int part2) {
+    char error_msg[100];
+    sprintf(error_msg, part1, part2);
     yyerror(error_msg);
 }
 

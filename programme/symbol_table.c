@@ -70,7 +70,7 @@ entry *symbol_create_entry(const entry_type entry_type, const data_type data_typ
 entry *symbol_add_ident(const entry_type entry_type, const data_type data_type, char *const identifier) {
 	entry *entry = symbol_get_ident(identifier);
 	if (entry != NULL) {
-		fprintf(stderr, "identifier '%s' already exists\n", identifier);
+	  //fprintf(stderr, "identifier '%s' already exists\n", identifier); // error message in parser to get yylineno
 		return entry;
 	}
 
@@ -163,4 +163,13 @@ void symbol_print_table() {
 		printf("\n");
 		entry = entry->next;
 	}
+}
+
+char *get_data_type_char(data_type dtype) {
+  switch(dtype) {
+  case _BOOL: return "bool";
+  case _INT: return "int";
+  case _REAL: return "real";
+  case _STRING: return "string";
+  }
 }

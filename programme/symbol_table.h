@@ -26,4 +26,6 @@ entry *symbol_get_ident(const char * const identifier);
 void symbol_print_table();
 void symbol_free();
 
+char *get_data_type_char(data_type dtype);
+
 #endif

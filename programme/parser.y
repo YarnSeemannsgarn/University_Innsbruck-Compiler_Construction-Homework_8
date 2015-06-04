@@ -10,9 +10,9 @@ void yyerror(char *);
 
 entry *get_and_verify_ident_symbol(const char * const ident); // handles task a)
 void declare_vars(node *identListType); // handles task b)
-void check_array_index(const char *const ident, node *index_expr); // handles task c);
+void check_array(const char *const ident, node *index_expr); // handles task c);
 void check_array_decl(node *number1, node *number2); // handles task d);
-void check_assignment(node *node1, node *node2); // handles task e
+void check_assign(const char *const ident, node *expr); // handles task e)
 
 void combine_err_msg(char const *part1, char const* part2);
 void combine_err_msg_2_repl(char const *part1, char const* part2, char const* part3);
@@ -66,7 +66,7 @@ identList               : T_ID T_COMMA identList { $$ = new_node(IDENTIFIER); $$
                         ;
 		 
 type                    : simpleType { $$ = new_node(TYPE); $$->body[2] = $1; }
-| T_ARRAY T_LEFT_SQUARE_BRACKET number T_DOT_DOT number T_RIGHT_SQUARE_BRACKET T_OF simpleType { $$ = new_node(TYPE); check_array_decl($3, $5); $$->body[0] = $3; $$->body[1] = $5; $$->body[2] = $8; }
+| T_ARRAY T_LEFT_SQUARE_BRACKET number T_DOT_DOT number T_RIGHT_SQUARE_BRACKET T_OF simpleType { $$ = new_node(TYPE); $$->body[0] = $3; $$->body[1] = $5; $$->body[2] = $8; check_array_decl($3, $5); }
                         ;
  
 simpleType	        : T_INTEGER { $$ = new_node(SIMPLE_TYPE_INT);  }
@@ -90,8 +90,8 @@ statement	        : assignStmt { $$ = $1; }
 		        | T_WRITE T_LEFT_BRACKET exprList T_RIGHT_BRACKET { $$ = new_node(IO_WRITE); $$->body[0] = $3; }
                         ;
 
-assignStmt              : T_ID T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[2] = $3; }
-                        | T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; check_array_index($1, $3); $$->body[2] = $6; }
+assignStmt              : T_ID T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[2] = $3; check_assign($1, $3); }
+                        | T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; $$->body[2] = $6; check_array($1, $3); }
                         ;
  
 ifStmt		        : T_IF expr T_THEN statement { $$ = new_node(IF); $$->body[0] = $2; $$->body[1] = $4; }
@@ -101,7 +101,7 @@ ifStmt		        : T_IF expr T_THEN statement { $$ = new_node(IF); $$->body[0] = 
 whileStmt	        : T_WHILE expr T_DO statement { $$ = new_node(WHILE); $$->body[0] = $2; $$->body[1] = $4; }
                         ;
  
-forStmt		        : T_FOR T_ID T_ASSIGNMENT expr toPart expr T_DO statement { $$ = new_node(FOR); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($2); $$->body[1] = $4; $$->body[2] = $5; $$->body[3] = $6; $$->body[4] = $8; }
+forStmt		        : T_FOR T_ID T_ASSIGNMENT expr toPart expr T_DO statement { $$ = new_node(FOR); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($2); $$->body[1] = $4; $$->body[2] = $5; $$->body[3] = $6; $$->body[4] = $8; check_assign($2, $4); }
                         ;
  
 toPart		        : T_TO { $$ = new_node(FOR_TO); }
@@ -128,7 +128,7 @@ factor		        : number { $$ = $1; }
 		        | T_FALSE { $$ = new_node(CONST); $$->symbol = symbol_get_or_add_int(_BOOL, 0); }
 		        | T_TRUE { $$ = new_node(CONST);  $$->symbol = symbol_get_or_add_int(_BOOL, 1); }
 		        | T_ID { $$ = new_node(IDENTIFIER);  $$->symbol = get_and_verify_ident_symbol($1); }
-                        | T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET { $$ = new_node(IDENTIFIER_SUBSCRIPT); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; check_array_index($1, $3); }	
+                        | T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET { $$ = new_node(IDENTIFIER_SUBSCRIPT); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; check_array($1, $3); }	
 		        | T_NOT factor { $$ = new_node(FACTOR_NOT); $$->body[0] = $2; }
 		        | T_MINUS factor { $$ = new_node(FACTOR_MINUS); $$->body[0] = $2; }
 		        | T_LEFT_BRACKET expr T_RIGHT_BRACKET { $$ = new_node(FACTOR_EXPR); $$->body[0] = $2; }
@@ -168,6 +168,16 @@ void yyerror(char *s) {
     parser_err_ctr++;
 }
 
+// For task a)
+entry *get_and_verify_ident_symbol(const char *const ident) {
+    entry *entry = symbol_get_ident(ident);
+    if (entry == NULL) {
+	combine_err_msg("Semantic error - Undeclared variable: ", ident);
+    }
+    return entry;
+}
+
+// For task b)
 void declare_vars(node *identListType) {
 	node *identNode = identListType->body[0];
 	const node *const typeNode = identListType->body[1];
@@ -201,24 +211,22 @@ void declare_vars(node *identListType) {
 	}
 }
 
-// For task a)
-entry *get_and_verify_ident_symbol(const char *const ident) {
-    entry *entry = symbol_get_ident(ident);
-    if (entry == NULL) {
-	combine_err_msg("Semantic error - Undeclared variable: ", ident);
-    }
-    return entry;
-}
-
 // For task c)
-void check_array_index(const char *const ident, node *index_expr) {
+void check_array(const char *const ident, node *index_expr) {
     entry *entry = symbol_get_ident(ident);
-    data_type entry_data_type = entry->dtype;
-    data_type index_expr_type = get_expr_data_type(index_expr, EXPR_PART_EXPR);
-    if(entry_data_type != index_expr_type) {
-	char *err_msg_part_2 = get_data_type_char(entry_data_type);
-	char *err_msg_part_3 = get_data_type_char(index_expr_type);
-	combine_err_msg_2_repl("Semantic error - different datatype for array identifier (%s) and array index (%s)", err_msg_part_2, err_msg_part_3);
+    // Check only if entry was created
+    if(entry != NULL) {
+	entry_type ident_entry_type = entry->etype;
+	if(ident_entry_type != _ARRAY) {
+		char *err_msg_part_2 = get_entry_type_char(ident_entry_type);
+		combine_err_msg("Semantic error - identifier is not an array, its entry type is: ", err_msg_part_2);
+	    }
+	
+	    data_type index_expr_type = get_expr_data_type(index_expr, EXPR_PART_EXPR);
+	    if(index_expr_type != _INT) {
+		char *err_msg_part_2 = get_data_type_char(index_expr_type);
+		combine_err_msg("Semantic error - wrong index for array, expected _INT, but got: ", err_msg_part_2);
+	    }
     }
 }
 
@@ -236,6 +244,14 @@ void check_array_decl(node *number1, node *number2) {
     } else if(number2->symbol->symbol.int_val < 0) {
 	combine_err_msg_int("Semantic error - Negative first array index in array declaration: %d", number2->symbol->symbol.int_val);
     }
+}
+
+// For task e)
+void check_assign(const char *const ident, node *expr) {
+    /*entry *entry = symbol_get_ident(ident);
+    data_type _data_type = entry->dtype;
+    data_type expr_type = get_expr_data_type(expr, EXPR_PART_EXPR);*/
+    //TODO
 }
 
 // For task c), e), f) and g)

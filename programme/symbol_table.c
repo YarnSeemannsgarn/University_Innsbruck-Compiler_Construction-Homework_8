@@ -165,11 +165,19 @@ void symbol_print_table() {
 	}
 }
 
+char *get_entry_type_char(entry_type etype) {
+  switch(etype) {
+  case _CONST: return "CONST";
+  case _SCALAR: return "SCALAR";
+  case _ARRAY: return "ARRAY";
+  }
+}
+
 char *get_data_type_char(data_type dtype) {
   switch(dtype) {
-  case _BOOL: return "bool";
-  case _INT: return "int";
-  case _REAL: return "real";
-  case _STRING: return "string";
+  case _BOOL: return "BOOL";
+  case _INT: return "INT";
+  case _REAL: return "REAL";
+  case _STRING: return "STRING";
   }
 }

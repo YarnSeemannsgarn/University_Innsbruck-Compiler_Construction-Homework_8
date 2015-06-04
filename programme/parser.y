@@ -1,13 +1,17 @@
 %{ 
 #include <stdio.h>
+#include <string.h>
 #include "node.h"
 #include "symbol_table.h"
 
+unsigned int parser_error_ctr = 0;
 node *root_node;
 void yyerror(char *);
 
-entry *get_and_verify_ident_symbol(const char * const ident);
-void declare_vars(node *identListType);
+entry *get_and_verify_ident_symbol(const char * const ident); // handles task a)
+void declare_vars(node *identListType); // handles task b)
+
+void combine_error_msg(char const *part1, char const* part2);
 %}
 
 %union {
@@ -79,7 +83,7 @@ statement	        : assignStmt { $$ = $1; }
                         ;
 
 assignStmt              : T_ID T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[2] = $3; }
-                        | T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; $$->body[2] = $6; }
+| T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; $$->body[2] = $6; }
                         ;
  
 ifStmt		        : T_IF expr T_THEN statement { $$ = new_node(IF); $$->body[0] = $2; $$->body[1] = $4; }
@@ -152,7 +156,8 @@ mulOp		        : T_STAR { $$ = new_node(OP); $$->op = MUL; }
 void yyerror(char *s) {
     extern int yylineno;
     extern char *yytext;
-    fprintf(stderr, "%s (line %d): \"%s\"\n", s, yylineno, yytext);
+    fprintf(stderr, "%s (line %d) -- yytext: \"%s\"\n", s, yylineno, yytext);
+    parser_error_ctr++;
 }
 
 void declare_vars(node *identListType) {
@@ -176,24 +181,38 @@ void declare_vars(node *identListType) {
 	}
 
 	while (identNode != NULL) {
-		identNode->symbol = symbol_add_ident(etype, dtype, identNode->ident_temp);
+	    // For task b)
+	    entry *entry = symbol_get_ident(identNode->ident_temp);
+	    if (entry != NULL) {
+		combine_error_msg("Semantic error - Variable is already declared in this scope: ", identNode->ident_temp);
+	    }
 
-		identNode = identNode->next;
+	    identNode->symbol = symbol_add_ident(etype, dtype, identNode->ident_temp);
+
+	    identNode = identNode->next;
 	}
 }
 
+// For task a)
 entry *get_and_verify_ident_symbol(const char *const ident) {
-	entry *entry = symbol_get_ident(ident);
-	if (entry == NULL) {
-		fprintf(stderr, "could not find symbol '%s' - ", ident);
-		yyerror("undeclared variable");
-	}
-	return entry;
+    entry *entry = symbol_get_ident(ident);
+    if (entry == NULL) {
+	combine_error_msg("Semantic error - Undeclared variable: ", ident);
+    }
+    return entry;
+}
+
+void combine_error_msg(char const *part1, char const* part2) {
+    char *error_msg = (char *) malloc(1 + strlen(part1)+ strlen(part2));
+    strcpy(error_msg, part1);
+    strcat(error_msg, part2);
+	
+    yyerror(error_msg);
 }
 
 int main() {
     int status = yyparse();
-    if (!status) {
+    if ((!status) && (parser_error_ctr == 0)) {
         printf("--> parsing successful <--\n");
         printf("--> print parsed program: <--\n\n");
 
@@ -202,9 +221,9 @@ int main() {
 	printf("--> end of parsed program <--\n");
     }
 
-    printf("--> printing symbol table <--\n");
+    printf("--> printing symbol table <--\n\n");
     symbol_print_table();
-    printf("--> end of symbol table <--\n");    
+    printf("\n--> end of symbol table <--\n");    
 
     free_node(root_node);
     symbol_free();

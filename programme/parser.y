@@ -4,7 +4,7 @@
 #include "node.h"
 #include "symbol_table.h"
 
-unsigned int parser_error_ctr = 0;
+unsigned int parser_err_ctr = 0;
 node *root_node;
 void yyerror(char *);
 
@@ -12,9 +12,14 @@ entry *get_and_verify_ident_symbol(const char * const ident); // handles task a)
 void declare_vars(node *identListType); // handles task b)
 void check_array_index(const char *const ident, node *index_expr); // handles task c);
 void check_array_decl(node *number1, node *number2); // handles task d);
+void check_assignment(node *node1, node *node2); // handles task e
 
-void combine_error_msg(char const *part1, char const* part2);
-void combine_error_msg_int(char const *part1, int part2);
+void combine_err_msg(char const *part1, char const* part2);
+void combine_err_msg_2_repl(char const *part1, char const* part2, char const* part3);
+void combine_err_msg_int(char const *part1, int part2);
+
+ typedef enum { EXPR_PART_EXPR=0, EXPR_PART_SIMPLE_EXPR, EXPR_PART_TERM, EXPR_PART_FACTOR } expr_part;
+data_type get_expr_data_type(node *expr, expr_part part);
 %}
 
 %union {
@@ -86,7 +91,7 @@ statement	        : assignStmt { $$ = $1; }
                         ;
 
 assignStmt              : T_ID T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[2] = $3; }
-| T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; check_array_index($1, $3); $$->body[2] = $6; }
+                        | T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; check_array_index($1, $3); $$->body[2] = $6; }
                         ;
  
 ifStmt		        : T_IF expr T_THEN statement { $$ = new_node(IF); $$->body[0] = $2; $$->body[1] = $4; }
@@ -123,7 +128,7 @@ factor		        : number { $$ = $1; }
 		        | T_FALSE { $$ = new_node(CONST); $$->symbol = symbol_get_or_add_int(_BOOL, 0); }
 		        | T_TRUE { $$ = new_node(CONST);  $$->symbol = symbol_get_or_add_int(_BOOL, 1); }
 		        | T_ID { $$ = new_node(IDENTIFIER);  $$->symbol = get_and_verify_ident_symbol($1); }
-                        | T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET { $$ = new_node(IDENTIFIER_SUBSCRIPT); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; }	
+                        | T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET { $$ = new_node(IDENTIFIER_SUBSCRIPT); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; check_array_index($1, $3); }	
 		        | T_NOT factor { $$ = new_node(FACTOR_NOT); $$->body[0] = $2; }
 		        | T_MINUS factor { $$ = new_node(FACTOR_MINUS); $$->body[0] = $2; }
 		        | T_LEFT_BRACKET expr T_RIGHT_BRACKET { $$ = new_node(FACTOR_EXPR); $$->body[0] = $2; }
@@ -160,7 +165,7 @@ void yyerror(char *s) {
     extern int yylineno;
     extern char *yytext;
     fprintf(stderr, "%s (line %d) -- yytext: \"%s\"\n", s, yylineno, yytext);
-    parser_error_ctr++;
+    parser_err_ctr++;
 }
 
 void declare_vars(node *identListType) {
@@ -187,7 +192,7 @@ void declare_vars(node *identListType) {
 	    // For task b)
 	    entry *entry = symbol_get_ident(identNode->ident_temp);
 	    if (entry != NULL) {
-		combine_error_msg("Semantic error - Variable is already declared in this scope: ", identNode->ident_temp);
+		combine_err_msg("Semantic error - Variable is already declared in this scope: ", identNode->ident_temp);
 	    }
 
 	    identNode->symbol = symbol_add_ident(etype, dtype, identNode->ident_temp);
@@ -200,54 +205,149 @@ void declare_vars(node *identListType) {
 entry *get_and_verify_ident_symbol(const char *const ident) {
     entry *entry = symbol_get_ident(ident);
     if (entry == NULL) {
-	combine_error_msg("Semantic error - Undeclared variable: ", ident);
+	combine_err_msg("Semantic error - Undeclared variable: ", ident);
     }
     return entry;
 }
 
 // For task c)
 void check_array_index(const char *const ident, node *index_expr) {
-    //TODO
+    entry *entry = symbol_get_ident(ident);
+    data_type entry_data_type = entry->dtype;
+    data_type index_expr_type = get_expr_data_type(index_expr, EXPR_PART_EXPR);
+    if(entry_data_type != index_expr_type) {
+	char *err_msg_part_2 = get_data_type_char(entry_data_type);
+	char *err_msg_part_3 = get_data_type_char(index_expr_type);
+	combine_err_msg_2_repl("Semantic error - different datatype for array identifier (%s) and array index (%s)", err_msg_part_2, err_msg_part_3);
+    }
 }
 
 // For task d) 
 void check_array_decl(node *number1, node *number2) {
     if(number1->symbol->dtype != _INT){
-	combine_error_msg("Semantic error - Wrong datatype for first array index in array declaration: ", get_data_type_char(number1->symbol->dtype));
+	combine_err_msg("Semantic error - Wrong datatype for first array index in array declaration: ", get_data_type_char(number1->symbol->dtype));
     } else if(number1->symbol->symbol.int_val < 0) {
-	char error_msg[100];
-	sprintf(error_msg, "Semantic error - Negative first array index in array declaration: %d", number1->symbol->symbol.int_val);
-	yyerror(error_msg);
+	char err_msg[100];
+	sprintf(err_msg, "Semantic error - Negative first array index in array declaration: %d", number1->symbol->symbol.int_val);
+	yyerror(err_msg);
     }
     if(number2->symbol->dtype != _INT){
-	combine_error_msg("Semantic error - Wrong datatype for second array index in array declaration: ", get_data_type_char(number2->symbol->dtype));
+	combine_err_msg("Semantic error - Wrong datatype for second array index in array declaration: ", get_data_type_char(number2->symbol->dtype));
     } else if(number2->symbol->symbol.int_val < 0) {
-	combine_error_msg_int("Semantic error - Negative first array index in array declaration: %d", number2->symbol->symbol.int_val);
+	combine_err_msg_int("Semantic error - Negative first array index in array declaration: %d", number2->symbol->symbol.int_val);
     }
 }
 
-void combine_error_msg(char const *part1, char const* part2) {
-    char *error_msg = (char *) malloc(1 + strlen(part1)+ strlen(part2));
-    strcpy(error_msg, part1);
-    strcat(error_msg, part2);
-    yyerror(error_msg);
+// For task c), e), f) and g)
+// TODO: real and integer combinations
+data_type get_expr_data_type(node *expr, expr_part part) {
+    switch(part) {
+    case EXPR_PART_EXPR: {
+	if(expr->body[1] == NULL) {
+	    return get_expr_data_type(expr->body[0], EXPR_PART_SIMPLE_EXPR);
+	}
+	else {
+	    data_type simple_expr1_type = get_expr_data_type(expr->body[0], EXPR_PART_SIMPLE_EXPR);
+	    data_type simple_expr2_type = get_expr_data_type(expr->body[2], EXPR_PART_SIMPLE_EXPR);
+	    if(simple_expr1_type != simple_expr2_type) {
+		char *err_msg_part_2 = get_data_type_char(simple_expr1_type);
+		char *err_msg_part_3 = get_data_type_char(simple_expr2_type);
+		combine_err_msg_2_repl("Semantic error - Expression has two different data types: %s and %s", err_msg_part_2, err_msg_part_3);
+	    }
+	    return simple_expr1_type;
+	}
+    } 
+    case EXPR_PART_SIMPLE_EXPR: {
+	if(expr->body[1] == NULL) {
+	    return get_expr_data_type(expr->body[0], EXPR_PART_TERM);
+	}
+	else {
+	    data_type simple_expr_type = get_expr_data_type(expr->body[0], EXPR_PART_SIMPLE_EXPR);
+	    data_type term_type = get_expr_data_type(expr->body[2], EXPR_PART_TERM);
+	    if(simple_expr_type != term_type) {
+		char *err_msg_part_2 = get_data_type_char(simple_expr_type);
+		char *err_msg_part_3 = get_data_type_char(term_type);
+		combine_err_msg_2_repl("Semantic error - Expression has two different data types: %s and %s", err_msg_part_2, err_msg_part_3);
+	    }
+	    return simple_expr_type;
+	}
+    }
+    case EXPR_PART_TERM: {
+	if(expr->body[1] == NULL) {
+	    return get_expr_data_type(expr->body[0], EXPR_PART_FACTOR);
+	}
+	else {
+	    data_type term_type = get_expr_data_type(expr->body[0], EXPR_PART_TERM);
+	    data_type factor_type = get_expr_data_type(expr->body[2], EXPR_PART_FACTOR);
+	    if(term_type != factor_type) {
+		char *err_msg_part_2 = get_data_type_char(term_type);
+		char *err_msg_part_3 = get_data_type_char(factor_type);
+		combine_err_msg_2_repl("Semantic error - Expression has two different data types: %s and %s", err_msg_part_2, err_msg_part_3);
+	    }
+	    return term_type;
+	}
+    }
+    case EXPR_PART_FACTOR: {
+	switch(expr->type) {
+	case CONST:
+	case IDENTIFIER:
+	    return expr->symbol->dtype;
+	case IDENTIFIER_SUBSCRIPT:
+	    return expr->body[0]->symbol->dtype;
+	case FACTOR_NOT: {
+	    data_type factor_type = get_expr_data_type(expr->body[0], EXPR_PART_FACTOR);
+	    if(factor_type != _BOOL) {
+		char *err_msg_part_2 = get_data_type_char(factor_type);
+		combine_err_msg("Semantic error - expected data type bool in front of NOT, but got: ", err_msg_part_2);
+	    }
+	    return factor_type;
+	}
+	case FACTOR_MINUS: {
+	    data_type factor_type = get_expr_data_type(expr->body[0], EXPR_PART_FACTOR);
+	    if(factor_type != _INT && factor_type != _REAL) {
+		char *err_msg_part_2 = get_data_type_char(factor_type);
+		combine_err_msg("Semantic error - expected data type int or real in front of \"-\", but got: ", err_msg_part_2);
+	    }
+	    return factor_type;
+	}
+	case FACTOR_EXPR: 
+	    return get_expr_data_type(expr->body[0], EXPR_PART_EXPR);
+	}
+    }
+    }
 }
 
-void combine_error_msg_int(char const *part1, int part2) {
-    char error_msg[100];
-    sprintf(error_msg, part1, part2);
-    yyerror(error_msg);
+void combine_err_msg(char const *part1, char const* part2) {
+    char *err_msg = (char *) malloc(1 + strlen(part1) + strlen(part2));
+    strcpy(err_msg, part1);
+    strcat(err_msg, part2);
+    yyerror(err_msg);
+}
+
+void combine_err_msg_2_repl(char const *part1, char const* part2, char const* part3) {
+    char err_msg[100];
+    sprintf(err_msg, part1, part2, part3);
+    yyerror(err_msg);
+}
+
+void combine_err_msg_int(char const *part1, int part2) {
+    char err_msg[100];
+    sprintf(err_msg, part1, part2);
+    yyerror(err_msg);
 }
 
 int main() {
     int status = yyparse();
-    if ((!status) && (parser_error_ctr == 0)) {
+    if ((!status) && (parser_err_ctr == 0)) {
         printf("--> parsing successful <--\n");
         printf("--> print parsed program: <--\n\n");
 
 	print_node(root_node);
 
 	printf("--> end of parsed program <--\n");
+    }
+    else {
+	printf("Found %u during parsing\n", parser_err_ctr);
     }
 
     printf("--> printing symbol table <--\n\n");

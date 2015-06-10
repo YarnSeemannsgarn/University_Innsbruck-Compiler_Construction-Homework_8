@@ -73,7 +73,8 @@ identList               : T_ID T_COMMA identList { $$ = new_node(IDENTIFIER); $$
                         ;
 		 
 type                    : simpleType { $$ = new_node(TYPE); $$->body[2] = $1; }
-| T_ARRAY T_LEFT_SQUARE_BRACKET number T_DOT_DOT number T_RIGHT_SQUARE_BRACKET T_OF simpleType { $$ = new_node(TYPE); $$->body[0] = $3; $$->body[1] = $5; $$->body[2] = $8; check_array_decl($3, $5); }
+                        | T_ARRAY T_LEFT_SQUARE_BRACKET number T_DOT_DOT number T_RIGHT_SQUARE_BRACKET T_OF simpleType 
+                          { $$ = new_node(TYPE); $$->body[0] = $3; $$->body[1] = $5; $$->body[2] = $8; check_array_decl($3, $5); }
                         ;
  
 simpleType	        : T_INTEGER { $$ = new_node(SIMPLE_TYPE_INT);  }
@@ -97,8 +98,10 @@ statement	        : assignStmt { $$ = $1; }
 		        | T_WRITE T_LEFT_BRACKET exprList T_RIGHT_BRACKET { $$ = new_node(IO_WRITE); $$->body[0] = $3; }
                         ;
 
-assignStmt              : T_ID T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[2] = $3; check_assign($1, $3); }
-                        | T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET T_ASSIGNMENT expr { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; $$->body[2] = $6; check_array($1, $3); }
+assignStmt              : T_ID T_ASSIGNMENT expr 
+                          { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[2] = $3; check_assign($1, $3); }
+                        | T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET T_ASSIGNMENT expr 
+                          { $$ = new_node(ASSIGN); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; $$->body[2] = $6; check_array($1, $3); }
                         ;
  
 ifStmt		        : T_IF expr T_THEN statement { $$ = new_node(IF); $$->body[0] = $2; $$->body[1] = $4; check_condition($2); }
@@ -108,7 +111,8 @@ ifStmt		        : T_IF expr T_THEN statement { $$ = new_node(IF); $$->body[0] = 
 whileStmt	        : T_WHILE expr T_DO statement { $$ = new_node(WHILE); $$->body[0] = $2; $$->body[1] = $4; }
                         ;
  
-forStmt		        : T_FOR T_ID T_ASSIGNMENT expr toPart expr T_DO statement { $$ = new_node(FOR); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($2); $$->body[1] = $4; $$->body[2] = $5; $$->body[3] = $6; $$->body[4] = $8; check_assign($2, $4); }
+forStmt		        : T_FOR T_ID T_ASSIGNMENT expr toPart expr T_DO statement 
+                          { $$ = new_node(FOR); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($2); $$->body[1] = $4; $$->body[2] = $5; $$->body[3] = $6; $$->body[4] = $8; check_assign($2, $4); }
                         ;
  
 toPart		        : T_TO { $$ = new_node(FOR_TO); }
@@ -135,7 +139,8 @@ factor		        : number { $$ = $1; }
 		        | T_FALSE { $$ = new_node(CONST); $$->symbol = symbol_get_or_add_int(_BOOL, 0); }
 		        | T_TRUE { $$ = new_node(CONST);  $$->symbol = symbol_get_or_add_int(_BOOL, 1); }
 		        | T_ID { $$ = new_node(IDENTIFIER);  $$->symbol = get_and_verify_ident_symbol($1); }
-                        | T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET { $$ = new_node(IDENTIFIER_SUBSCRIPT); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; check_array($1, $3); }	
+                        | T_ID T_LEFT_SQUARE_BRACKET expr T_RIGHT_SQUARE_BRACKET 
+                          { $$ = new_node(IDENTIFIER_SUBSCRIPT); $$->body[0] = new_node(IDENTIFIER); $$->body[0]->symbol = get_and_verify_ident_symbol($1); $$->body[1] = $3; check_array($1, $3); }	
 		        | T_NOT factor { $$ = new_node(FACTOR_NOT); $$->body[0] = $2; }
 		        | T_MINUS factor { $$ = new_node(FACTOR_MINUS); $$->body[0] = $2; }
 		        | T_LEFT_BRACKET expr T_RIGHT_BRACKET { $$ = new_node(FACTOR_EXPR); $$->body[0] = $2; }

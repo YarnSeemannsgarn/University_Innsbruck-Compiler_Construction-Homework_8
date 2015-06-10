@@ -250,22 +250,25 @@ void print_node(const node * const node) {
 		break;
 
 	case OP:
-		switch (node->op) {
-		case LT: printf(" < "); break;
-		case LE: printf(" <= "); break;
-		case GT: printf(" > "); break;
-		case GE: printf(" >= "); break;
-		case EQ: printf(" = "); break;
-		case NE: printf(" <> "); break;
-		case PLUS: printf(" + "); break;
-		case MINUS: printf(" - "); break;
-		case OR: printf(" or "); break;
-		case MUL: printf(" * "); break;
-		case SLASH: printf(" / "); break;
-		case DIV: printf(" div "); break;
-		case MOD: printf(" mod "); break;
-		case AND: printf(" and "); break;
-		}
-		break;
+	    printf(" %s ", get_op_char(node->op));
 	}
+}
+
+char *get_op_char(operator op) {
+    switch(op) {
+    case PLUS: return "+";
+    case MINUS: return "-";
+    case MUL: return "*";
+    case DIV: return "div";
+    case MOD: return "mod";
+    case LT: return "<";
+    case LE: return "<=";
+    case GT: return ">";
+    case GE: return ">=";
+    case EQ: return "=";
+    case NE: return "<>";
+    case AND: return "and";
+    case OR: return "or";
+    case SLASH: return "/";
+    }
 }

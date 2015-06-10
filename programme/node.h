@@ -23,4 +23,6 @@ int get_body_count(const node_type type);
 void free_node(node *node);
 void print_node(const node * const node);
 
+char *get_op_char(operator op);
+
 #endif

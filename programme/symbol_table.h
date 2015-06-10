@@ -3,7 +3,7 @@
 
 // Copied from task sheet
 typedef enum { _CONST=0, _SCALAR, _ARRAY } entry_type;
-typedef enum { _BOOL=0, _INT, _REAL, _STRING } data_type;
+typedef enum { _BOOL=0, _INT, _REAL, _STRING, _ERROR } data_type; // error for semantic checks
 
 typedef struct _entry {
     entry_type etype ;

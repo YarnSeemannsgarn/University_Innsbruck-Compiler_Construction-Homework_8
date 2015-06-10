@@ -179,5 +179,6 @@ char *get_data_type_char(data_type dtype) {
     case _INT: return "INT";
     case _REAL: return "REAL";
     case _STRING: return "STRING";
+    default: return "ERROR";
     }
 }

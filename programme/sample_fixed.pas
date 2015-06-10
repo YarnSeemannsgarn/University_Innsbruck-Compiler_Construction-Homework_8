@@ -4,15 +4,19 @@
 
 program minipas;
 
-  var x, y, i, n: integer;      
-      a: array [1..100] of real;
-	  b: boolean;
+  var x,  y, i, n : integer;   
+     z		    : real;
+     a	    : array [11..-100] of real;
+	  b	    : boolean;
 
   begin
   
+     x := 0;
+     z := false;
+
     { Calculate greatest common divisor of x and y }
     read(x, y);
-    while x * y <> 0 do
+    while x * b <> 0 do
     begin
       if x > y then
         x := x - y
@@ -62,15 +66,16 @@ program minipas;
 
     { Sort an array of x elements }
     read(x);
+     read(a3[0]);
     for i := 1 to x do
-      read(a[i]);
+      read(a[z]);
     b := true;
     while b do
     begin
       b := false;
       for i := 1 to x do
       begin
-        if a[i] > a[i+1] then
+        if a[b] > a[i+1] then
         begin
           a[i] := a[i] + a[i+1];
           a[i+1] := a[i] - a[i+1];

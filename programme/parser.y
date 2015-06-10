@@ -14,17 +14,19 @@ void declare_vars(node *identListType); // handles task b)
 void check_array(const char *const ident, node *index_expr); // handles task c);
 void check_array_decl(node *number1, node *number2); // handles task d);
 void check_assign(const char *const ident, node *expr); // handles task e)
-void check_illegal_op(node *left_node, node *op, node *right_node, expr_part expr_part1, expr_part expr_part2); // handles task f)
+void check_expr(node *expr); // handles task f)
 void check_condition(node *expr); // handles task g)
+
+// For task c), e), f) and g)
+data_type get_expr_data_type(node *expr, expr_part part);
+// For task f)
+data_type get_op_data_type(node *left_node, node *op, node *right_node); // handles task f)
 
 void yyerror(char *);
 void combine_err_msg_1_repl(char const *part1, char const* part2);
 void combine_err_msg_2_repl(char const *part1, char const* part2, char const* part3);
 void combine_err_msg_3_repl(char const *part1, char const* part2, char const* part3, char const* part4);
 void combine_err_msg_int(char const *part1, int part2);
-
-// For task c), e), f) and g)
-data_type get_expr_data_type(node *expr, expr_part part);
 %}
 
 %union {
@@ -113,7 +115,7 @@ toPart		        : T_TO { $$ = new_node(FOR_TO); }
 		        | T_DOWNTO { $$ = new_node(FOR_DOWNTO); }
                         ;
  
-expr                    : simpleExpr relOp simpleExpr { $$ = new_node(EXPR); $$->body[0] = $1; $$->body[1] = $2; $$->body[2] = $3; check_illegal_op($1, $2, $3, EXPR_PART_SIMPLE_EXPR, EXPR_PART_SIMPLE_EXPR); }
+expr                    : simpleExpr relOp simpleExpr { $$ = new_node(EXPR); $$->body[0] = $1; $$->body[1] = $2; $$->body[2] = $3; check_expr($$); }
                         | simpleExpr { $$ = new_node(EXPR); $$->body[0] = $1; }
                         ;
 
@@ -121,11 +123,11 @@ exprList                : expr T_COMMA exprList { $$ = $1; $$->next = $3; }
                         | expr { $$ = $1; }
                         ;
 
-simpleExpr              : simpleExpr addOp term { $$ = new_node(EXPR); $$->body[0] = $1; $$->body[1] = $2; $$->body[2] = $3; check_illegal_op($1, $2, $3, EXPR_PART_SIMPLE_EXPR, EXPR_PART_TERM); }
+simpleExpr              : simpleExpr addOp term { $$ = new_node(EXPR); $$->body[0] = $1; $$->body[1] = $2; $$->body[2] = $3; }
                         | term { $$ = new_node(EXPR); $$->body[0] = $1; }
                         ;
 
-term                    : term mulOp factor { $$ = new_node(EXPR); $$->body[0] = $1; $$->body[1] = $2; $$->body[2] = $3; check_illegal_op($1, $2, $3, EXPR_PART_TERM, EXPR_PART_FACTOR); }
+term                    : term mulOp factor { $$ = new_node(EXPR); $$->body[0] = $1; $$->body[1] = $2; $$->body[2] = $3; }
                         | factor { $$ = new_node(EXPR); $$->body[0] = $1; }
                         ;
 
@@ -166,7 +168,7 @@ mulOp		        : T_STAR { $$ = new_node(OP); $$->op = MUL; }
 
 %%
 
-// For task a)
+// Handles task a)
 entry *get_and_verify_ident_symbol(const char *const ident) {
     entry *entry = symbol_get_ident(ident);
     if (entry == NULL) {
@@ -175,7 +177,7 @@ entry *get_and_verify_ident_symbol(const char *const ident) {
     return entry;
 }
 
-// For task b)
+// Handles task b)
 void declare_vars(node *identListType) {
 	node *identNode = identListType->body[0];
 	const node *const typeNode = identListType->body[1];
@@ -209,7 +211,7 @@ void declare_vars(node *identListType) {
 	}
 }
 
-// For task c)
+// Handles task c)
 void check_array(const char *const ident, node *index_expr) {
     entry *entry = symbol_get_ident(ident);
     // Check only if entry was created
@@ -228,7 +230,7 @@ void check_array(const char *const ident, node *index_expr) {
     }
 }
 
-// For task d) 
+// Handles task d) 
 void check_array_decl(node *number1, node *number2) {
     if(number1->symbol->dtype != _INT){
 	combine_err_msg_1_repl("Semantic error - wrong datatype %s for first array index in array declaration", get_data_type_char(number1->symbol->dtype));
@@ -244,7 +246,7 @@ void check_array_decl(node *number1, node *number2) {
     }
 }
 
-// For task e)
+// Handles task e)
 void check_assign(const char *const ident, node *expr) {
     entry *entry = symbol_get_ident(ident);
     // TODO: consider arrays
@@ -263,76 +265,13 @@ void check_assign(const char *const ident, node *expr) {
     }
 }
 
-// For task f)
-void check_illegal_op(node *left_node, node *op, node *right_node, expr_part expr_part1, expr_part expr_part2) {
-    operator op_val = op->op;
-    data_type left_node_dtype = get_expr_data_type(left_node, expr_part1);
-    data_type right_node_dtype = get_expr_data_type(right_node, expr_part2);
-    int illegal_op = 0;
-    switch(op_val) {
-    case LT:
-    case LE:
-    case GT:
-    case GE:
-    case MINUS:
-    case MUL:
-    case SLASH:
-	// Int and real combined
-	if(!(
-	     (left_node_dtype == _INT || left_node_dtype == _REAL) && (right_node_dtype == _INT || right_node_dtype == _REAL)
-	    )
-	   ) {
-	    illegal_op = 1;
-	}
-	break;
-    case EQ:
-    case NE:
-	// All datatypes, int and real combined
-	if(!(
-	     (left_node_dtype == _BOOL && right_node_dtype == _BOOL) ||
-	     ((left_node_dtype == _INT || left_node_dtype == _REAL) && (right_node_dtype == _INT || right_node_dtype == _REAL )) ||
-	     (left_node_dtype == _STRING && right_node_dtype == _STRING)
-	    )
-	  ) {
-	    illegal_op = 1;
-	}
-	break;
-    case PLUS:
-	// String, int and real combined
-	if(!(
-	     ((left_node_dtype == _INT || left_node_dtype == _REAL) && (right_node_dtype == _INT || right_node_dtype == _REAL )) ||
-	     (left_node_dtype == _STRING && right_node_dtype == _STRING)
-	    )
-	  ) {
-	    illegal_op = 1;
-	}
-	break;
-    case OR:
-    case AND:
-	// Boolean
-	if(!(left_node_dtype == _BOOL && right_node_dtype == _BOOL)) {
-	    illegal_op = 1;
-	}
-	break;
-    case DIV:
-    case MOD:
-	// Int
-	if(!(left_node_dtype == _INT && right_node_dtype == _INT)) {
-	    illegal_op = 1;
-	}
-	break;
-    }
-
-    if(illegal_op != 0){
-	char *err_msg_part2 = get_data_type_char(left_node_dtype);
-	char *err_msg_part3 = get_data_type_char(right_node_dtype);
-	char *err_msg_part4 = get_op_char(op_val);
-	combine_err_msg_3_repl("Semantic error - wrong operands (%s and %s) for operator %s", err_msg_part2, err_msg_part3, err_msg_part4);
-    }
+// Handles task f)
+void check_expr(node *expr){
+    get_expr_data_type(expr, EXPR_PART_EXPR);
 }
 
-// For task g)
-check_condition(node *expr){
+// Handles task g)
+void check_condition(node *expr){
     data_type expr_dtype = get_expr_data_type(expr, EXPR_PART_EXPR);
     if(expr_dtype != _BOOL){
 	char *err_msg_part2 = get_data_type_char(expr_dtype);
@@ -349,45 +288,21 @@ data_type get_expr_data_type(node *expr, expr_part part) {
 	    return get_expr_data_type(expr->body[0], EXPR_PART_SIMPLE_EXPR);
 	}
 	else {
-	    data_type simple_expr1_type = get_expr_data_type(expr->body[0], EXPR_PART_SIMPLE_EXPR);
-	    data_type simple_expr2_type = get_expr_data_type(expr->body[2], EXPR_PART_SIMPLE_EXPR);
-	    if(simple_expr1_type != simple_expr2_type) {
-		char *err_msg_part_2 = get_data_type_char(simple_expr1_type);
-		char *err_msg_part_3 = get_data_type_char(simple_expr2_type);
-		combine_err_msg_2_repl("Semantic error - expression has incompatible data types (%s and %s)", err_msg_part_2, err_msg_part_3);
-	    }
-	    // relop expressions always returns bool
-	    return _BOOL;
+	    return get_op_data_type(expr->body[0], expr->body[1], expr->body[2]);
 	}
     case EXPR_PART_SIMPLE_EXPR:
 	if(expr->body[1] == NULL) {
 	    return get_expr_data_type(expr->body[0], EXPR_PART_TERM);
 	}
 	else {
-	    data_type simple_expr_type = get_expr_data_type(expr->body[0], EXPR_PART_SIMPLE_EXPR);
-	    data_type term_type = get_expr_data_type(expr->body[2], EXPR_PART_TERM);
-	    if(simple_expr_type != term_type) {
-		char *err_msg_part_2 = get_data_type_char(simple_expr_type);
-		char *err_msg_part_3 = get_data_type_char(term_type);
-		combine_err_msg_2_repl("Semantic error - expression has incompatible data types (%s and %s)", err_msg_part_2, err_msg_part_3);
-		return _ERROR;
-	    }
-	    return simple_expr_type;
+	    return get_op_data_type(expr->body[0], expr->body[1], expr->body[2]);
 	}
     case EXPR_PART_TERM:
 	if(expr->body[1] == NULL) {
 	    return get_expr_data_type(expr->body[0], EXPR_PART_FACTOR);
 	}
 	else {
-	    data_type term_type = get_expr_data_type(expr->body[0], EXPR_PART_TERM);
-	    data_type factor_type = get_expr_data_type(expr->body[2], EXPR_PART_FACTOR);
-	    if(term_type != factor_type) {
-		char *err_msg_part_2 = get_data_type_char(term_type);
-		char *err_msg_part_3 = get_data_type_char(factor_type);
-		combine_err_msg_2_repl("Semantic error - expression has incompatible data types (%s and %s)", err_msg_part_2, err_msg_part_3);
-		return _ERROR;
-	    }
-	    return term_type;
+	    return get_op_data_type(expr->body[0], expr->body[1], expr->body[2]);
 	}
     case EXPR_PART_FACTOR:
 	switch(expr->type) {
@@ -423,6 +338,142 @@ data_type get_expr_data_type(node *expr, expr_part part) {
 	case FACTOR_EXPR: 
 	    return get_expr_data_type(expr->body[0], EXPR_PART_EXPR);
 	}
+    }
+}
+
+// For task f)
+data_type get_op_data_type(node *left_node, node *op, node *right_node) {
+    operator op_val = op->op;
+    expr_part expr_part1;
+    expr_part expr_part2;
+
+    switch(op_val) {
+	// relop
+    case LT:
+    case LE:
+    case GT:
+    case GE:
+    case EQ:
+    case NE:
+	expr_part1 = EXPR_PART_SIMPLE_EXPR;
+	expr_part2 = EXPR_PART_SIMPLE_EXPR;
+	break;
+	// addop
+    case PLUS:
+    case MINUS:
+    case OR:
+	expr_part1 = EXPR_PART_SIMPLE_EXPR;
+	expr_part2 = EXPR_PART_TERM;
+	break;
+	// mulop
+    case MUL:
+    case SLASH:
+    case AND:
+    case DIV:
+    case MOD:
+	expr_part1 = EXPR_PART_TERM;
+	expr_part2 = EXPR_PART_FACTOR;
+	break;
+    }
+
+
+    data_type left_node_dtype = get_expr_data_type(left_node, expr_part1);
+    data_type right_node_dtype = get_expr_data_type(right_node, expr_part2);
+    int illegal_op = 0;
+
+    switch(op_val) {
+    case LT:
+    case LE:
+    case GT:
+    case GE:
+	// Int and real combined
+	if((
+	     (left_node_dtype == _INT || left_node_dtype == _REAL) && (right_node_dtype == _INT || right_node_dtype == _REAL)
+	    )
+	   ) {
+	    return _BOOL;
+	}
+	else{
+	    illegal_op = 1;
+	}
+	break;
+    case MINUS:
+    case MUL:
+    case SLASH:
+	// Int and real combined
+	if(
+	   (left_node_dtype == _REAL && (right_node_dtype == _INT || right_node_dtype == _REAL)) ||
+	   (right_node_dtype == _REAL && (left_node_dtype == _INT || left_node_dtype == _REAL))
+	   ){
+	    return _REAL;
+	}
+	else if(left_node_dtype == _INT && right_node_dtype == _INT) {
+	    return _INT;
+	}
+	else {
+	    illegal_op = 1;
+	}
+	break;
+    case EQ:
+    case NE:
+	// All datatypes, int and real combined
+	if((
+	     (left_node_dtype == _BOOL && right_node_dtype == _BOOL) ||
+	     ((left_node_dtype == _INT || left_node_dtype == _REAL) && (right_node_dtype == _INT || right_node_dtype == _REAL )) ||
+	     (left_node_dtype == _STRING && right_node_dtype == _STRING)
+	    )
+	  ) {
+	    return _BOOL;
+	}
+	else {
+	    illegal_op = 1;;
+	}
+    case PLUS:
+	// String, int and real combined
+	if(
+	   (left_node_dtype == _REAL && (right_node_dtype == _INT || right_node_dtype == _REAL)) ||
+	   (right_node_dtype == _REAL && (left_node_dtype == _INT || left_node_dtype == _REAL))
+	   ){
+	    return _REAL;
+	}
+	else if(left_node_dtype == _INT && right_node_dtype == _INT) {
+	    return _INT;
+	}
+	else if(left_node_dtype == _STRING && right_node_dtype == _STRING) {
+	    return _STRING;
+	}
+	else {
+	    illegal_op = 1;
+	}
+	break;
+    case OR:
+    case AND:
+	// Boolean
+	if(left_node_dtype == _BOOL && right_node_dtype == _BOOL) {
+	    return _BOOL;
+	}
+	else {
+	    illegal_op = 1;
+	}
+	break;
+    case DIV:
+    case MOD:
+	// Int
+	if((left_node_dtype == _INT && right_node_dtype == _INT)) {
+	    return _INT;
+	}
+	else {
+	    illegal_op = 1;
+	}
+	break;
+    }
+
+    if(illegal_op != 0){
+	char *err_msg_part2 = get_data_type_char(left_node_dtype);
+	char *err_msg_part3 = get_data_type_char(right_node_dtype);
+	char *err_msg_part4 = get_op_char(op_val);
+	combine_err_msg_3_repl("Semantic error - wrong operands (%s and %s) for operator %s", err_msg_part2, err_msg_part3, err_msg_part4);
+	return _ERROR;
     }
 }
 

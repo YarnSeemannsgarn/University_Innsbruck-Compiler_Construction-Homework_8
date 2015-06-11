@@ -7,7 +7,7 @@ First of all build the programme:
 
 Afterwards you can run the progamme as follows
 
-      $ ./parser < sample.pas
+      $ ./parser < sample_all_errors.pas
 
 If you want to clean up just do:
 

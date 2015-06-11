@@ -2,9 +2,10 @@
 #define SYMBOL_H_
 
 // Copied from task sheet
-typedef enum { _CONST=0, _SCALAR, _ARRAY } entry_type;
-typedef enum { _BOOL=0, _INT, _REAL, _STRING, _ERROR } data_type; // error for semantic checks
+typedef enum { _CONST=0, _SCALAR, _ARRAY, _ENTRY_TYPE_ERROR } entry_type;
+typedef enum { _BOOL=0, _INT, _REAL, _STRING, _DATA_TYPE_ERROR } data_type; // error for semantic checks
 
+// Implemented as linked list
 typedef struct _entry {
     entry_type etype ;
     data_type dtype ;
